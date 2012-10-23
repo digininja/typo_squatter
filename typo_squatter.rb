@@ -15,6 +15,7 @@
 # 1.0 - Released
 #
 
+require "bundler/setup"
 require 'getoptlong'
 require 'whois'
 
