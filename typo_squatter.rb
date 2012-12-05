@@ -1,168 +1,80 @@
 #!/usr/bin/env ruby
 
-# == Typo Squater - suggest alternative domains
-#
-# Blah blah
-#
-# See the README for full information
-#
-# Author:: Robin Wood (robin.wood@randomstorm.com)
-# Version:: 1.0
-# Copyright:: Copyright(c) 2012, RandomStorm Limited - www.randomstorm.com
-# Licence:: Creative Commons Attribution-Share Alike 2.0
-#
-# Changes:
-# 1.0 - Released
-#
-
-require "bundler/setup"
-require 'getoptlong'
-require 'whois'
-
-# The left hand character is what you are looking for
-# and the right hand one is the one you are replacing it
-# with
-
-leet_swap = {
-			"l" => "i",
-			"m" => "rn",
-			"o" => "0",
-			"i" => "l",
+# There is a problem here, as this is a hash it can't have the same source 
+# character twice so you can't ask it to replace i with 1 and i with l
+replace_hash = {
+				"o" => "0",
+				"i" => "l",
+				"m" => "rn",
 			}
 
-opts = GetoptLong.new(
-	[ '--help', '-h', GetoptLong::NO_ARGUMENT ],
-	[ '--verbose', "-v" , GetoptLong::NO_ARGUMENT ]
-)
+if ARGV.length != 1
+	puts "type_squatter v0.1
 
-# Display the usage
-def usage
-	puts "typo_squater v 1.0 Robin Wood (robin@digininja.org) <www.digininja.org>
-
-Usage: typo_squater.rb [OPTION] <DOMAIN>
-	--help, -h: show help
-	--verbose, -v: verbose
+Usage: 
+./typo_squatter.rb <domain name>
 
 "
-	exit
+	exit 1
 end
 
-def binaryincrement(binarray)
-	index = binarray.size-1
-	incremented = false
-	 while !incremented and index>=0
-		if (binarray[index]==0)
-			binarray[index] = 1
-			incremented = true
-			break
-		else
-			binarray[index]=0
-		end
-		index -= 1
-	end
-	return binarray
-end
+tmp_domain = ARGV.shift
 
-def leet_variations(word, swap_array)
-	count = 0
-	swap_array.keys.each do |key|
-		count += word.count(key)
-	end
-
-	variation = Array.new(count,0)
-	leetletterpos = Array.new(count,0)
-	variationarr = []
-	# Save the indexes where the leet letters can be substituted
-	pos = 0
-	iter = 0
-	tmpword = word.dup
-
-	swap_array.each do |char, replace|
-		pos = 0
-		while (!(pos=tmpword.index(char)).nil?)
-			leetletterpos[iter] = pos
-			tmpword[pos]="$"
-			iter += 1
-		end
-	end
-	# Create all posible combinations of subtitutions
-	src_chars = swap_array.keys.join
-	dst_chars = swap_array.values.join
-
-	begin
-		tmpword = word.dup
-		variation = binaryincrement(variation)
-		idx = 0
-		variation.each{|changeletter|
-			if (changeletter==1)
-				# Tried tr! but it won't replace inline, probably because it doesn't know where the slice is happening
-				#tmpword[leetletterpos[idx],1] = tmpword[leetletterpos[idx],1].tr(src_chars, dst_chars)
-				swap_array.each_pair do |src, dst|
-					tmpword[leetletterpos[idx],1] = tmpword[leetletterpos[idx],1].sub(/#{Regexp.quote(src)}/, dst)
-				end
-			end
-			idx += 1
-		}
-		variationarr << tmpword
-	end while (variation != Array.new(count,1))
-	return variationarr
-end
-
-verbose=false
-
-begin
-	opts.each do |opt, arg|
-		case opt
-		when '--help'
-			usage
-		when '--verbose'
-			verbose=true
-		end
-	end
-rescue => e
-	puts e
-	usage
-end
-
-if ARGV[0].nil?
-	puts "No domain specified"
-	puts
-	usage
-	exit
-end
-
-domain = ARGV[0]
-tld=""
-
-# Don't just take from the last dot as that would leave .co.uk as just uk
-if domain.match(/^([^.]*)\.(.*$)/)
-	name = $1
+domain_name = ""
+if tmp_domain.match(/([^\.]*).(.*)/)
+	domain_name = $1
 	tld = $2
-end
-if verbose
-	puts "name = " + name
-	puts "tld = " + tld
-end
-
-results = []
-
-leetarr = leet_variations(name, leet_swap)
-leetarr.each do |leetvar|
-	results << leetvar + "." + tld
+else
+	domain_name = tmp_domain
+	tld = nil
 end
 
-results.uniq!
+new_domains = []
+num_replace = domain_name.length
 
-results.each do |newdomain|
-	who = nil
-	begin
-		who = Whois.query(newdomain)
-	rescue
+0.upto((2**num_replace) - 1) do |bitmap|
+	new_domain_name = domain_name.dup
+
+	0.upto(num_replace - 1) do |bit|
+		# Doing it with 0 rather than 1 because that runs through backwards
+		# which means a 2 char replace happens at the end of the string first
+		# and doesn't mess up the length of the string
+		if bitmap[bit] == 0
+			src_char = domain_name[bit]
+			src_2_char = domain_name[bit, 2]
+
+#			puts "bit = " + bit.to_s
+#			puts "src = " + src_char
+			#print domain_name[bit] + " "
+			#print "replace "
+			if replace_hash.has_key?(src_char)
+				dst_char = replace_hash[src_char]
+#				puts "dst = " + dst_char
+				new_domain_name[bit, src_char.length] = dst_char
+			elsif replace_hash.has_key?(src_2_char)
+				dst_char = replace_hash[src_2_char]
+#				puts "replacing " +bit.to_s + " with " + dst_char
+#				puts "dst = " + dst_char
+				new_domain_name[bit, src_2_char.length] = dst_char
+			end
+		else
+	#		print "leave "
+		end
 	end
+	if !(new_domains.include?(new_domain_name.to_s)) and domain_name != new_domain_name
+		new_domains << new_domain_name
+	end
+end
 
-	if (!who.nil?)
-		puts newdomain + " - Registered"
-	else
-		puts newdomain + " - Unregistered"
+if new_domains.count == 0
+	puts "No suggestions of alternative domains"
+else
+	puts "Some alternative domains:"
+	new_domains.each do |dom|
+		if tld.nil?
+			puts dom
+		else
+			puts dom + "." + tld
+		end
 	end
 end
