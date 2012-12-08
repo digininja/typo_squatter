@@ -6,6 +6,8 @@ replace_hash = {
 				"o" => "0",
 				"i" => "l",
 				"m" => "rn",
+				"g" => "q",
+				"q" => "g",
 			}
 
 if ARGV.length != 1
