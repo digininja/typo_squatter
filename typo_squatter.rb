@@ -7,6 +7,7 @@ replace_hash = {
 				"i" => "l",
 				"m" => "rn",
 				"g" => "q",
+				"q" => "g",
 			}
 
 if ARGV.length != 1
@@ -22,7 +23,7 @@ end
 tmp_domain = ARGV.shift
 
 domain_name = ""
-if tmp_domain.match(/([^\.]*).(.*)/)
+if tmp_domain.match(/([^\.]*)[.](.*)/)
 	domain_name = $1
 	tld = $2
 else
